@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Dawnwrld AI Clipper</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: #080808;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 700px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #aaa;
+      margin-bottom: 35px;
+    }
+
+    .box {
+      background: #111;
+      border: 1px solid #292929;
+      border-radius: 18px;
+      padding: 25px;
+    }
+
+    input {
+      width: 100%;
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #080808;
+      color: white;
+      font-size: 16px;
+      outline: none;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 15px;
+      padding: 16px;
+      border: none;
+      border-radius: 10px;
+      background: white;
+      color: black;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #status {
+      margin-top: 20px;
+      color: #aaa;
+    }
+
+    .clip {
+      margin-top: 20px;
+      padding: 18px;
+      background: #111;
+      border: 1px solid #292929;
+      border-radius: 14px;
+      text-align: left;
+    }
+
+    .clip h3 {
+      margin-bottom: 8px;
+    }
+
+    .clip p {
+      color: #aaa;
+      margin-bottom: 12px;
+    }
+
+    video {
+      width: 100%;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+
+    .download {
+      display: block;
+      text-align: center;
+      padding: 12px;
+      border-radius: 8px;
+      background: white;
+      color: black;
+      text-decoration: none;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <h1>Dawnwrld</h1>
+
+    <p class="subtitle">
+      AI-powered YouTube clip generator
+    </p>
+
+    <div class="box">
+
+      <input
+        id="youtubeUrl"
+        type="url"
+        placeholder="Paste YouTube URL..."
+      >
+
+      <button id="generateBtn">
+        FIND 5 BEST CLIPS
+      </button>
+
+      <div id="status"></div>
+
+    </div>
+
+    <div id="results"></div>
+
+  </div>
+
+  <script>
+    const button = document.getElementById("generateBtn");
+    const input = document.getElementById("youtubeUrl");
+    const status = document.getElementById("status");
+    const results = document.getElementById("results");
+
+    button.addEventListener("click", async () => {
+
+      const url = input.value.trim();
+
+      if (!url) {
+        status.textContent = "Paste a YouTube URL first.";
+        return;
+      }
+
+      button.disabled = true;
+      status.textContent = "Downloading and analyzing video...";
+      results.innerHTML = "";
+
+      try {
+
+        const response = await fetch("/api/clip", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ url })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Something went wrong.");
+        }
+
+        status.textContent = `Found ${data.clips.length} clips!`;
+
+        data.clips.forEach((clip, index) => {
+
+          const div = document.createElement("div");
+
+          div.className = "clip";
+
+          div.innerHTML = `
+            <h3>${index + 1}. ${escapeHtml(clip.title)}</h3>
+
+            <p>${escapeHtml(clip.reason)}</p>
+
+            <video controls src="${clip.url}"></video>
+
+            <a
+              class="download"
+              href="${clip.url}"
+              download
+            >
+              DOWNLOAD CLIP
+            </a>
+          `;
+
+          results.appendChild(div);
+        });
+
+      } catch (error) {
+
+        status.textContent = "Error: " + error.message;
+
+      } finally {
+
+        button.disabled = false;
+
+      }
+    });
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+  </script>
+
+</body>
+</html>
