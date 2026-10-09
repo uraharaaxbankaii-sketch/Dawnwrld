@@ -1,6 +1,291 @@
-```html
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080808">
+  <title>Dawnwrld — AI Clipper</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      padding: 24px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #080808;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    main {
+      width: 100%;
+      max-width: 680px;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: clamp(40px, 10vw, 64px);
+      font-weight: 800;
+      letter-spacing: -2px;
+    }
+
+    .logo span {
+      color: #a78bfa;
+    }
+
+    .subtitle {
+      color: #999;
+      margin: 12px 0 32px;
+      line-height: 1.6;
+    }
+
+    .panel {
+      padding: 22px;
+      border: 1px solid #292929;
+      border-radius: 18px;
+      background: #111;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 12px;
+      text-align: left;
+      color: #ccc;
+      font-size: 14px;
+    }
+
+    input {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      border: 1px solid #333;
+      border-radius: 10px;
+      outline: none;
+      background: #080808;
+      color: white;
+      font-size: 15px;
+    }
+
+    input:focus {
+      border-color: #a78bfa;
+    }
+
+    button, .download {
+      display: block;
+      width: 100%;
+      margin-top: 14px;
+      padding: 16px;
+      border: 0;
+      border-radius: 10px;
+      background: #fff;
+      color: #080808;
+      font-size: 15px;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .55;
+      cursor: wait;
+    }
+
+    #status {
+      margin-top: 18px;
+      color: #bbb;
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+    }
+
+    .clip {
+      margin-top: 18px;
+      padding: 18px;
+      border: 1px solid #292929;
+      border-radius: 14px;
+      background: #111;
+      text-align: left;
+    }
+
+    .clip h2 {
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .clip p {
+      margin-bottom: 12px;
+      color: #aaa;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    video {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      border-radius: 10px;
+      background: #000;
+    }
+
+    footer {
+      margin-top: 24px;
+      color: #666;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <div class="logo">Dawn<span>wrld</span></div>
+    <p class="subtitle">
+      Turn long videos into standout clips with AI.
+    </p>
+
+    <section class="panel">
+      <label for="youtubeUrl">YouTube video URL</label>
+
+      <input
+        id="youtubeUrl"
+        type="url"
+        placeholder="Paste your YouTube link here..."
+        autocomplete="url"
+      >
+
+      <button id="generateBtn">FIND 5 BEST CLIPS</button>
+
+      <p id="status" role="status">
+        Paste a video link to get started.
+      </p>
+    </section>
+
+    <section id="results" aria-live="polite"></section>
+
+    <footer>
+      Use videos you own or have permission to process.
+      Processing may take several minutes.
+    </footer>
+  </main>
+
+  <script>
+    const input = document.getElementById("youtubeUrl");
+    const button = document.getElementById("generateBtn");
+    const status = document.getElementById("status");
+    const results = document.getElementById("results");
+
+    button.addEventListener("click", async () => {
+      const url = input.value.trim();
+
+      if (!url) {
+        status.textContent = "Please paste a YouTube URL first.";
+        return;
+      }
+
+      let parsed;
+
+      try {
+        parsed = new URL(url);
+      } catch {
+        status.textContent = "That URL is not valid.";
+        return;
+      }
+
+      const host = parsed.hostname.toLowerCase();
+      const validHost = [
+        "youtube.com",
+        "www.youtube.com",
+        "m.youtube.com",
+        "youtu.be",
+        "www.youtu.be"
+      ];
+
+      if (!validHost.includes(host)) {
+        status.textContent = "Please enter a YouTube URL.";
+        return;
+      }
+
+      button.disabled = true;
+      results.replaceChildren();
+      status.textContent =
+        "Analyzing the video. Please wait...";
+
+      try {
+        const response = await fetch("/api/clip", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ url })
+        });
+
+        const type = response.headers.get("content-type") || "";
+
+        if (!type.includes("application/json")) {
+          throw new Error(
+            "The backend did not return JSON. " +
+            "Make sure the Node.js server is running and " +
+            "you opened its Codespaces port URL, not GitHub Pages."
+          );
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Clip generation failed.");
+        }
+
+        if (!Array.isArray(data.clips) || data.clips.length === 0) {
+          status.textContent = "No clips were found for this video.";
+          return;
+        }
+
+        status.textContent =
+          `Success! ${data.clips.length} clips are ready.`;
+
+        data.clips.slice(0, 5).forEach((clip, index) => {
+          const card = document.createElement("article");
+          card.className = "clip";
+
+          const title = document.createElement("h2");
+          title.textContent =
+            `${index + 1}. ${clip.title || "Highlight"}`;
+
+          const reason = document.createElement("p");
+          reason.textContent = clip.reason || "";
+
+          const video = document.createElement("video");
+          video.controls = true;
+          video.playsInline = true;
+          video.src = clip.url;
+
+          const download = document.createElement("a");
+          download.className = "download";
+          download.href = clip.url;
+          download.download = `Dawnwrld-clip-${index + 1}.mp4`;
+          download.textContent = "DOWNLOAD CLIP";
+
+          card.append(title, reason, video, download);
+          results.appendChild(card);
+        });
+
+      } catch (error) {
+        status.textContent = "Error: " + error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
 ```
+
